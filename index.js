@@ -14,8 +14,8 @@ if (process.env.HTTPS) {
 }
 const io = require("socket.io")(server)
 
-const width = 300
-const height = 300
+const width = parseInt(process.env.IMG_WIDTH) || 600
+const height = parseInt(process.env.IMG_HEIGHT) || 400
 const colors = 32
 
 let img
