@@ -1,0 +1,143 @@
+<html>
+
+<head>
+    <title>画板</title>
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+</head>
+
+<body>
+    <div id="app">
+        <v-app>
+            <v-toolbar app>
+                <v-toolbar-title>冬日画板</v-toolbar-title>
+            </v-toolbar>
+            <v-content>
+                <v-container fluid>
+                    <v-layout row>
+                        <v-flex sm12>
+                            <v-card style="height: calc(100% - 420px); overflow: auto;">
+                                <canvas ref="canvas">
+                                </canvas>
+                            </v-card>
+                        </v-flex>
+                    </v-layout>
+                    <v-layout row>
+                        <v-flex sm12>
+                            <v-card>
+                                <v-card-title class="headline">操作</v-card-title>
+                                <v-card-text>
+                                    <v-btn-toggle mandatory v-model="selectedColor">
+                                        <v-btn flat v-for="(color, i) in colorList" :key="i" :value="i" :color="color">█</v-btn>
+                                    </v-btn-toggle>
+                                    <v-switch v-model="multi" label="连笔"></v-switch>
+                                    <v-slider v-model="scale" :min="1" :max="10"></v-slider>
+                                </v-card-text>
+                                <v-card-actions>
+                                    <b>剩余寿命：{{ rest }}s。每1秒将自动帮您续1s</b>
+                                    <pre :style="statusStyle">{{ status }}</pre>
+                                </v-card-actions>
+                            </v-card>
+                        </v-flex>
+                    </v-layout>
+                </v-container>
+            </v-content>
+        </v-app>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        new Vue({
+            el: '#app',
+            data: {
+                statusStyle: 'color: red',
+                status: 'disconnected',
+                selectedColor: 0,
+                colorList: ['rgb(0, 0, 0)', 'rgb(255, 255, 255)', 'rgb(170, 170, 170)', 'rgb(85, 85, 85)', 'rgb(254, 211, 199)', 'rgb(255, 196, 206)', 'rgb(250, 172, 142)', 'rgb(255, 139, 131)', 'rgb(244, 67, 54)', 'rgb(233, 30, 99)', 'rgb(226, 102, 158)', 'rgb(156, 39, 176)', 'rgb(103, 58, 183)', 'rgb(63, 81, 181)', 'rgb(0, 70, 112)', 'rgb(5, 113, 151)', 'rgb(33, 150, 243)', 'rgb(0, 188, 212)', 'rgb(59, 229, 219)', 'rgb(151, 253, 220)', 'rgb(22, 115, 0)', 'rgb(55, 169, 60)', 'rgb(137, 230, 66)', 'rgb(215, 255, 7)', 'rgb(255, 246, 209)', 'rgb(248, 203, 140)', 'rgb(255, 235, 59)', 'rgb(255, 193, 7)', 'rgb(255, 152, 0)', 'rgb(255, 87, 34)', 'rgb(184, 63, 39)', 'rgb(121, 85, 72)'],
+                multi: false,
+                width: 0,
+                height: 0,
+                img: undefined,
+                scale: 5,
+                rest: 0,
+            },
+            watch: {
+                scale() {
+                    this.$refs.canvas.width = this.width * this.scale
+                    this.$refs.canvas.height = this.height * this.scale
+                    this.render()
+                }
+            },
+            methods: {
+                draw(x, y, color) {
+                    const ctx = this.$refs.canvas.getContext("2d")
+                    ctx.save()
+                    ctx.fillStyle = this.colorList[color]
+                    ctx.fillRect(x * this.scale, y * this.scale, this.scale, this.scale)
+                },
+                render() {
+                    this.$refs.canvas.width = this.width * this.scale
+                    this.$refs.canvas.height = this.height * this.scale
+                    for (let i = 0; i < this.width; i++) {
+                        for (let j = 0; j < this.height; j++) {
+                            this.draw(i, j, this.img[i][j])
+                        }
+                    }
+                }
+            },
+            mounted() {
+                const socket = io()
+                socket.on("init", (data) => {
+                    setInterval(() => {
+                        this.rest++
+                    }, 1000)
+
+                    this.statusStyle = "color: green"
+                    this.status = "connected"
+                    this.width = data.width
+                    this.height = data.height
+                    this.img = data.img
+                    this.render()
+
+                    const update = (x, y) => {
+                        if (this.rest <= 0) return
+                        if (this.img[x][y] === this.selectedColor) return
+                        this.img[x][y] = this.selectedColor
+                        this.draw(x, y, this.selectedColor)
+                        this.rest--
+                        socket.emit("draw", { x, y, color: this.selectedColor })
+                    }
+
+                    let mouseDown = false
+                    this.$refs.canvas.onmousedown = (e) => {
+                        const x = Math.floor(e.offsetX / this.scale)
+                        const y = Math.floor(e.offsetY / this.scale)
+                        update(x, y)
+                        mouseDown = true
+                    }
+                    this.$refs.canvas.onmouseup = (e) => {
+                        mouseDown = false
+                    }
+                    this.$refs.canvas.onmouseout = (e) => {
+                        mouseDown = false
+                    }
+                    this.$refs.canvas.onmousemove = (e) => {
+                        if (!mouseDown) return
+                        if (!this.multi) return
+                        const x = Math.floor(e.offsetX / this.scale)
+                        const y = Math.floor(e.offsetY / this.scale)
+                        update(x, y)
+                    }
+                    socket.on("update", (data) => {
+                        const { x, y, color } = data
+                        this.draw(x, y, this.img[x][y] = color)
+                    })
+                })
+            }
+        })
+    </script>
+</body>
+
+</html>

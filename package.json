@@ -1,0 +1,22 @@
+{
+  "name": "wainter",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "ZhangZisu",
+  "license": "MIT",
+  "private": false,
+  "devDependencies": {
+    "@types/debug": "^0.0.31",
+    "@types/express": "^4.16.0",
+    "@types/node": "^10.12.18",
+    "@types/socket.io": "^2.1.2"
+  },
+  "dependencies": {
+    "debug": "^4.1.1",
+    "express": "^4.16.4",
+    "path": "^0.12.7",
+    "socket.io": "^2.2.0"
+  },
+  "description": "Winter paint board",
+  "repository": "https://github.com/ZhangZisu/wainter.git"
+}
