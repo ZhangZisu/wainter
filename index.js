@@ -7,10 +7,10 @@ let server
 if (process.env.HTTPS) {
     const credentials = { key: fs.readFileSync(process.env.KEY), cert: fs.readFileSync(process.env.CERT) }
     server = require("https").createServer(credentials, app)
-    server.listen(443)
+    server.listen(parseInt(process.env.PORT) || 443)
 } else {
     server = require("http").createServer(app)
-    server.listen(80)
+    server.listen(parseInt(process.env.PORT) || 80)
 }
 const io = require("socket.io")(server)
 
